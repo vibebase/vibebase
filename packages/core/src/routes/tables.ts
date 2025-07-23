@@ -72,24 +72,6 @@ tables.get('/:tableName/schema', async (c) => {
 })
 
 // Get table data
-tables.get('/:tableName/data', async (c) => {
-  const tm = c.get('tableManager')
-  if (!tm) {
-    return c.json({ error: 'Database not available' }, 500)
-  }
-
-  try {
-    const tableName = c.req.param('tableName')
-    const limit = Number(c.req.query('limit') || '100')
-    const offset = Number(c.req.query('offset') || '0')
-
-    const result = await tm.getTableData(tableName, limit, offset)
-    return c.json(result)
-  } catch (error) {
-    console.error('Error fetching table data:', error)
-    return c.json({ error: 'Failed to fetch table data' }, 500)
-  }
-})
 
 // Create new table
 const createTableSchema = z.object({
@@ -148,101 +130,6 @@ tables.delete('/:tableName', async (c) => {
     return c.json(
       {
         error: error instanceof Error ? error.message : 'Failed to drop table',
-      },
-      400
-    )
-  }
-})
-
-// Create record in table
-tables.post('/:tableName/data', async (c) => {
-  const tm = c.get('tableManager')
-  if (!tm) {
-    return c.json({ error: 'Database not available' }, 500)
-  }
-
-  try {
-    const tableName = c.req.param('tableName')
-    const data = await c.req.json()
-
-    // Check if table is system table
-    if (
-      SYSTEM_TABLES.includes(tableName as (typeof SYSTEM_TABLES)[number]) ||
-      tableName === '_cf_KV'
-    ) {
-      return c.json({ error: 'Cannot modify system table' }, 403)
-    }
-
-    // Use TableManager to ensure foreign key constraints are enabled
-    await tm.createRecord(tableName, data)
-
-    return c.json({ success: true }, 201)
-  } catch (error) {
-    console.error('Error creating record:', error)
-    return c.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to create record',
-      },
-      400
-    )
-  }
-})
-
-// Update record in table
-tables.put('/:tableName/data/:id', async (c) => {
-  const tm = c.get('tableManager')
-  if (!tm) {
-    return c.json({ error: 'Database not available' }, 500)
-  }
-
-  try {
-    const tableName = c.req.param('tableName')
-    const id = c.req.param('id')
-    const data = await c.req.json()
-
-    // Check if table is system table
-    if (
-      SYSTEM_TABLES.includes(tableName as (typeof SYSTEM_TABLES)[number]) ||
-      tableName === '_cf_KV'
-    ) {
-      return c.json({ error: 'Cannot modify system table' }, 403)
-    }
-
-    // Use TableManager to ensure foreign key constraints are enabled
-    await tm.updateRecord(tableName, id, data)
-
-    return c.json({ success: true })
-  } catch (error) {
-    console.error('Error updating record:', error)
-    return c.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to update record',
-      },
-      400
-    )
-  }
-})
-
-// Delete record from table
-tables.delete('/:tableName/data/:id', async (c) => {
-  const tm = c.get('tableManager')
-  if (!tm) {
-    return c.json({ error: 'Database not available' }, 500)
-  }
-
-  try {
-    const tableName = c.req.param('tableName')
-    const id = c.req.param('id')
-
-    // Use TableManager to ensure foreign key constraints are enabled
-    await tm.deleteRecord(tableName, id)
-
-    return c.json({ success: true })
-  } catch (error) {
-    console.error('Error deleting record:', error)
-    return c.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to delete record',
       },
       400
     )

@@ -38,13 +38,19 @@ export const tableApi = {
     limit = 100,
     offset = 0
   ): Promise<{ data: Record<string, unknown>[]; total: number }> {
-    const response = await client.get<{ data: Record<string, unknown>[]; total: number }>(
-      `/api/tables/${tableName}/data?limit=${limit}&offset=${offset}`
-    )
+    const response = await client.get<{
+      data: Record<string, unknown>[]
+      pagination: { total: number }
+    }>(`/api/data/${tableName}?limit=${limit}&offset=${offset}`)
     if (!response.success) {
       throw new Error(response.error || 'Failed to fetch table data')
     }
-    return response.data as NonNullable<typeof response.data>
+    // Transform response to match expected format
+    const responseData = response.data as NonNullable<typeof response.data>
+    return {
+      data: responseData.data,
+      total: responseData.pagination.total,
+    }
   },
 
   async createTable(
@@ -177,14 +183,18 @@ export const tableApi = {
     tableName: string,
     data: Record<string, unknown>
   ): Promise<{ success: boolean; id: string }> {
-    const response = await client.post<{ success: boolean; id: string }>(
-      `/api/tables/${tableName}/data`,
+    const response = await client.post<{ success: boolean; data: { id: string } }>(
+      `/api/data/${tableName}`,
       data
     )
     if (!response.success) {
       throw new Error(response.error || 'Failed to create record')
     }
-    return response.data as NonNullable<typeof response.data>
+    const responseData = response.data as NonNullable<typeof response.data>
+    return {
+      success: responseData.success,
+      id: responseData.data.id,
+    }
   },
 
   async updateRecord(
@@ -200,9 +210,7 @@ export const tableApi = {
   },
 
   async deleteRecord(tableName: string, data: { id: string }): Promise<{ success: boolean }> {
-    const response = await client.delete<{ success: boolean }>(
-      `/api/tables/${tableName}/data/${data.id}`
-    )
+    const response = await client.delete<{ success: boolean }>(`/api/data/${tableName}/${data.id}`)
     if (!response.success) {
       throw new Error(response.error || 'Failed to delete record')
     }

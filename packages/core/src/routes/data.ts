@@ -64,9 +64,23 @@ data.get('/:tableName', async (c) => {
   const currentUser = c.get('currentEndUser')
 
   try {
-    const page = Math.max(1, Number(c.req.query('page') || '1'))
+    // Support both offset-based and page-based pagination
+    const offsetParam = c.req.query('offset')
+    const pageParam = c.req.query('page')
     const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') || '20')))
-    const offset = (page - 1) * limit
+
+    let offset: number
+    let page: number
+
+    if (offsetParam !== undefined) {
+      // Offset-based pagination (preferred)
+      offset = Math.max(0, Number(offsetParam || '0'))
+      page = Math.floor(offset / limit) + 1
+    } else {
+      // Page-based pagination (backward compatibility)
+      page = Math.max(1, Number(pageParam || '1'))
+      offset = (page - 1) * limit
+    }
 
     // Get table columns to determine default sort field
     const columns = await tm.getTableColumns(tableName)
@@ -149,10 +163,11 @@ data.get('/:tableName', async (c) => {
       pagination: {
         page,
         limit,
+        offset,
         total: result.total,
         totalPages: Math.ceil(result.total / limit),
-        hasNext: page * limit < result.total,
-        hasPrev: page > 1,
+        hasNext: offset + limit < result.total,
+        hasPrev: offset > 0,
       },
       sort: { by: sortBy, order: sortOrder },
       access_info: {
