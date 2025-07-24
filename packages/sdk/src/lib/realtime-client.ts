@@ -116,16 +116,20 @@ export class RealtimeClient {
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
+        console.log('[REALTIME-CLIENT] Received event:', data)
 
         // Skip connection events
         if (data.type === 'connected') {
+          console.log('[REALTIME-CLIENT] Connection confirmed')
           return
         }
 
-        // Only handle realtime events
-        if (data.type && data.table && data.record) {
+        // Handle realtime events with different formats
+        if (data.type === 'event' || (data.type && (data.table || data.tableName))) {
+          console.log('[REALTIME-CLIENT] Processing realtime event:', data)
           this.handleRealtimeEvent(data as RealtimeEvent)
         } else {
+          console.warn('[REALTIME-CLIENT] Unknown event format:', data)
         }
       } catch (error) {
         console.error('Failed to parse realtime event:', error, 'Raw data:', event.data)
@@ -133,18 +137,24 @@ export class RealtimeClient {
     }
 
     this.eventSource.onerror = (error) => {
-      console.error('Realtime connection error:', error)
+      console.error(
+        '[REALTIME-CLIENT] Connection error:',
+        error,
+        'ReadyState:',
+        this.eventSource?.readyState
+      )
 
       // Attempt to reconnect after delay
       setTimeout(() => {
         if (this.subscriptions.size > 0) {
+          console.log('[REALTIME-CLIENT] Attempting reconnection...')
           this.ensureConnection()
         }
       }, 5000)
     }
 
     this.eventSource.onopen = () => {
-      console.log('Realtime connection established')
+      console.log('[REALTIME-CLIENT] Connection opened successfully')
     }
   }
 
@@ -159,7 +169,7 @@ export class RealtimeClient {
       }
 
       // Match event type
-      if (subscription.eventType !== event.type && subscription.eventType !== '*') {
+      if (subscription.eventType !== event.eventType && subscription.eventType !== '*') {
         continue
       }
 
@@ -223,6 +233,13 @@ export class RealtimeManager {
    * Toggle hook status
    */
   async toggleHook(hookId: string, enabled: boolean): Promise<ApiResponse<void>> {
-    return this.http.patch(`/api/hooks/${hookId}`, { is_enabled: enabled })
+    return this.http.put(`/api/hooks/${hookId}`, { enabled })
+  }
+
+  /**
+   * Process failed events from the queue
+   */
+  async processEvents(): Promise<ApiResponse<{ processed: number; message: string }>> {
+    return this.http.post('/api/realtime/process-events')
   }
 }

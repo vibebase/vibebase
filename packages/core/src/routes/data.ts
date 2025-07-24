@@ -262,16 +262,29 @@ data.post('/:tableName', async (c) => {
     let id: string
 
     // Apply access control based on authentication type
+    console.log(
+      `[DATA-ROUTE] Creating record in ${tableName}, authContext:`,
+      authContext?.type,
+      'currentUser:',
+      currentUser?.id
+    )
+
     if (authContext?.type === 'admin') {
       // Admins can create records normally
+      console.log(`[DATA-ROUTE] Using admin flow for ${tableName}`)
       id = await tm.createRecordWithId(tableName, body)
     } else if (authContext?.type === 'user' && currentUser) {
       // Users get owner_id automatically set for private tables
+      console.log(
+        `[DATA-ROUTE] Using user access control flow for ${tableName}, userId: ${currentUser.id}`
+      )
       id = await tm.createRecordWithAccessControl(tableName, body, currentUser.id)
     } else if (authContext?.type === 'api_key') {
       // API keys can create records (for now, treat as admin-level)
+      console.log(`[DATA-ROUTE] Using API key flow for ${tableName}`)
       id = await tm.createRecordWithId(tableName, body)
     } else {
+      console.log(`[DATA-ROUTE] No valid authentication for ${tableName}`)
       return c.json({ error: 'Authentication required' }, 401)
     }
 
@@ -291,6 +304,14 @@ data.post('/:tableName', async (c) => {
         access_info: {
           table_policy: tableInfo?.access_policy || 'public',
           auth_type: authContext?.type || 'none',
+        },
+        debug_info: {
+          auth_context_type: authContext?.type,
+          current_user_id: currentUser?.id,
+          method_used:
+            authContext?.type === 'user' && currentUser
+              ? 'createRecordWithAccessControl'
+              : 'createRecordWithId',
         },
       },
       201
@@ -353,6 +374,9 @@ data.put('/:tableName/:id', async (c) => {
     if (isAdminOrApiKey) {
       await tm.updateRecord(tableName, id, body)
     } else {
+      console.log(
+        `[DATA-ROUTE] Update record: tableName=${tableName}, id=${id}, currentUser?.id=${currentUser?.id}`
+      )
       await tm.updateRecordWithAccessControl(tableName, id, body, currentUser?.id)
     }
 

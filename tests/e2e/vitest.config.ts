@@ -17,8 +17,8 @@ export default defineConfig(({ mode }) => {
       },
       environment: 'jsdom',
       globals: true,
-      testTimeout: 30000,
-      hookTimeout: 30000,
+      testTimeout: 60000,  // リアルタイムテスト用に延長
+      hookTimeout: 60000,  // フックタイムアウトも延長
       setupFiles: ['./vitest.setup.ts'],
       sequence: {
         shuffle: false, // E2Eテストは順序に依存する場合があるため

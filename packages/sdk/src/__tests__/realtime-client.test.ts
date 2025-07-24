@@ -306,6 +306,7 @@ describe('RealtimeManager', () => {
     mockHttpClient = {
       get: vi.fn(),
       post: vi.fn(),
+      put: vi.fn(),
       patch: vi.fn(),
       delete: vi.fn(),
       request: vi.fn(),
@@ -390,12 +391,12 @@ describe('RealtimeManager', () => {
         success: true,
         status: 200,
       }
-      mockHttpClient.patch.mockResolvedValue(mockResponse)
+      mockHttpClient.put.mockResolvedValue(mockResponse)
 
       const result = await realtimeManager.toggleHook(hookId, enabled)
 
-      expect(mockHttpClient.patch).toHaveBeenCalledWith(`/api/hooks/${hookId}`, {
-        is_enabled: enabled,
+      expect(mockHttpClient.put).toHaveBeenCalledWith(`/api/hooks/${hookId}`, {
+        enabled,
       })
       expect(result).toEqual(mockResponse)
     })
@@ -407,12 +408,12 @@ describe('RealtimeManager', () => {
         success: true,
         status: 200,
       }
-      mockHttpClient.patch.mockResolvedValue(mockResponse)
+      mockHttpClient.put.mockResolvedValue(mockResponse)
 
       const result = await realtimeManager.toggleHook(hookId, enabled)
 
-      expect(mockHttpClient.patch).toHaveBeenCalledWith(`/api/hooks/${hookId}`, {
-        is_enabled: enabled,
+      expect(mockHttpClient.put).toHaveBeenCalledWith(`/api/hooks/${hookId}`, {
+        enabled,
       })
       expect(result).toEqual(mockResponse)
     })

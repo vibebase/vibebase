@@ -188,12 +188,44 @@ export class HookManager {
     eventData: Record<string, unknown>,
     options?: BroadcastOptions
   ): Promise<void> {
-    // 即時ブロードキャスト（waitUntilでバックグラウンド実行）
-    if (options?.env?.REALTIME && options?.executionCtx) {
-      options.executionCtx.waitUntil(
-        this.broadcastRealtime(tableName, eventType, recordId, eventData, options.env.REALTIME)
+    console.log(`[HOOK-MANAGER] ===== processDataEvent called =====`)
+    console.log(`[HOOK-MANAGER] Table: ${tableName}, Event: ${eventType}, RecordId: ${recordId}`)
+    console.log(`[HOOK-MANAGER] EventData:`, JSON.stringify(eventData, null, 2))
+    console.log(`[HOOK-MANAGER] Options:`, options ? 'provided' : 'not provided')
+
+    // 即時ブロードキャスト（Durable Objects経由）
+    console.log(`[HOOK-MANAGER] ===== BROADCAST ATTEMPT START =====`)
+    try {
+      console.log(`[HOOK-MANAGER] Attempting broadcast for ${tableName} ${eventType}`)
+      console.log(`[HOOK-MANAGER] Options available:`, {
+        hasOptions: !!options,
+        hasEnv: !!options?.env,
+        hasREALTIME: !!options?.env?.REALTIME,
+        envKeys: options?.env ? Object.keys(options.env) : [],
+      })
+
+      if (options?.env?.REALTIME) {
+        console.log('[HOOK-MANAGER] ✅ REALTIME env available - proceeding with broadcast')
+        await this.broadcastRealtime(
+          tableName,
+          eventType,
+          recordId,
+          eventData,
+          options.env.REALTIME
+        )
+        console.log('[HOOK-MANAGER] ✅ Broadcast call completed')
+      } else {
+        console.error('[HOOK-MANAGER] ❌ No REALTIME env available for broadcast')
+        console.log('[HOOK-MANAGER] Missing REALTIME environment - events will not be broadcast')
+      }
+    } catch (error) {
+      console.error('[HOOK-MANAGER] ❌ Durable Objects broadcast failed:', error)
+      console.error(
+        '[HOOK-MANAGER] Broadcast error stack:',
+        error instanceof Error ? error.stack : 'No stack'
       )
     }
+    console.log(`[HOOK-MANAGER] ===== BROADCAST ATTEMPT END =====`)
 
     // プッシュ通知処理（waitUntilでバックグラウンド実行）
     if (options?.executionCtx) {
@@ -247,34 +279,54 @@ export class HookManager {
     eventData: Record<string, unknown>,
     realtimeNamespace: CustomDurableObjectNamespace
   ): Promise<void> {
+    console.log(`[HOOK-MANAGER] ===== broadcastRealtime called =====`)
+    console.log(
+      `[HOOK-MANAGER] Table: ${tableName}, EventType: ${eventType}, RecordId: ${recordId}`
+    )
+    console.log(`[HOOK-MANAGER] EventData keys:`, Object.keys(eventData))
+
     try {
+      console.log('[HOOK-MANAGER] Getting Durable Object ID...')
       const id = realtimeNamespace.idFromName('global')
+      console.log('[HOOK-MANAGER] Getting Durable Object stub...')
       const stub = realtimeNamespace.get(id) as DurableObjectStub
 
+      const payload = {
+        type: 'event',
+        event: {
+          table: tableName,
+          recordId,
+          eventType,
+          data: eventData,
+          timestamp: getCurrentDateTimeISO(),
+        },
+      }
+      console.log('[HOOK-MANAGER] Broadcast payload:', JSON.stringify(payload, null, 2))
+
+      console.log('[HOOK-MANAGER] Sending broadcast request to Durable Object...')
       const response = await stub.fetch('http://internal/broadcast', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          type: 'event',
-          event: {
-            table: tableName,
-            recordId,
-            eventType,
-            data: eventData,
-            timestamp: getCurrentDateTimeISO(),
-          },
-        }),
+        body: JSON.stringify(payload),
       })
 
+      console.log(`[HOOK-MANAGER] Durable Object response status: ${response.status}`)
+      const responseText = await response.text()
+      console.log(`[HOOK-MANAGER] Durable Object response body: ${responseText}`)
+
       if (!response.ok) {
-        throw new Error(`Broadcast failed: ${response.status}`)
+        console.error(`[HOOK-MANAGER] ❌ Broadcast failed with status ${response.status}`)
+      } else {
+        console.log(`[HOOK-MANAGER] ✅ Broadcast successful`)
       }
     } catch (error) {
-      console.error('Realtime broadcast failed:', error)
-      // エラーでもメイン処理には影響しない
-      // フック記録があるのでCronで再送信される
+      console.error('[HOOK-MANAGER] ❌ Realtime broadcast error:', error)
+      console.error(
+        '[HOOK-MANAGER] Error stack:',
+        error instanceof Error ? error.stack : 'No stack'
+      )
     }
   }
 }

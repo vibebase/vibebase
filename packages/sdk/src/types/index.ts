@@ -96,10 +96,14 @@ export interface RealtimeSubscription {
 }
 
 export interface RealtimeEvent {
-  type: 'insert' | 'update' | 'delete'
+  type: 'event' | 'error' | 'ping'
   table: string
-  record: TableRow
+  eventType: 'insert' | 'update' | 'delete'
+  recordId: string
+  data?: TableRow
+  record?: TableRow
   old_record?: TableRow
+  timestamp?: string
 }
 
 // Storage types

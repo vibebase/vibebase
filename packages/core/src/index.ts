@@ -27,6 +27,7 @@ import userAuth from './routes/user-auth'
 import { CURRENT_ASSETS } from './templates/assets'
 import { getDashboardHTML } from './templates/html'
 import type { Env, Variables } from './types'
+import type { CustomDurableObjectNamespace } from './types/cloudflare'
 
 // Export Durable Object class
 export { RealtimeConnectionManager } from './durable-objects/realtime-connection'
@@ -47,6 +48,66 @@ app.onError((err, c) => {
 })
 
 app.use('*', logger())
+
+// Debug SSE endpoint (before auth middleware)
+app.get('/debug/test-sse', async (c) => {
+  console.log('[DEBUG-SSE] Test SSE endpoint accessed')
+
+  if (!c.env.REALTIME) {
+    console.log('[DEBUG-SSE] REALTIME not configured')
+    return c.json({ error: 'REALTIME not configured' }, 503)
+  }
+
+  try {
+    const realtime = c.env.REALTIME as CustomDurableObjectNamespace
+    const id = realtime.idFromName('global')
+    const stub = realtime.get(id)
+    const clientId = `debug-${Math.random().toString(36).substring(2)}`
+
+    console.log('[DEBUG-SSE] Connecting to Durable Object with clientId:', clientId)
+    console.log('[DEBUG-SSE] Durable Object namespace:', !!realtime)
+    console.log('[DEBUG-SSE] Durable Object ID:', id)
+    console.log('[DEBUG-SSE] Durable Object stub:', !!stub)
+
+    const response = await stub.fetch(`http://internal/connect?clientId=${clientId}`)
+
+    console.log('[DEBUG-SSE] DO response status:', response.status)
+    console.log(
+      '[DEBUG-SSE] DO response headers:',
+      response.headers ? Object.fromEntries(response.headers.entries()) : 'No headers'
+    )
+    console.log('[DEBUG-SSE] DO response body stream:', !!response.body)
+
+    // Log first few bytes if possible
+    const clonedResponse = response.clone()
+    try {
+      const reader = clonedResponse.body?.getReader()
+      if (reader) {
+        const { value, done } = await reader.read()
+        console.log(
+          '[DEBUG-SSE] First chunk:',
+          value ? new TextDecoder().decode(value) : 'No data',
+          'Done:',
+          done
+        )
+        reader.releaseLock()
+      }
+    } catch (readError) {
+      console.log('[DEBUG-SSE] Could not read response body:', readError)
+    }
+
+    return response
+  } catch (error) {
+    console.error('[DEBUG-SSE] Error:', error)
+    return c.json(
+      {
+        error: 'Failed to connect',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    )
+  }
+})
 
 // Apply security headers to all responses
 app.use('*', securityHeaders())
@@ -122,7 +183,7 @@ app.use('*', async (c, next) => {
     c.req.path.startsWith('/api/auth/') ||
     c.req.path.startsWith('/assets/') ||
     c.req.path.startsWith('/favicon.') ||
-    c.req.path === '/api/realtime/test-sse' ||
+    c.req.path === '/api/realtime/ping' ||
     c.req.path === '/api/push/vapid-public-key'
   ) {
     await next()

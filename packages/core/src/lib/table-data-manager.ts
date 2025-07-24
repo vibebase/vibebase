@@ -39,10 +39,80 @@ export class TableDataManager {
   }
 
   /**
+   * Create a record with a specific ID (or let the system generate one)
+   */
+  async createRecordWithId(tableName: string, data: Record<string, unknown>): Promise<string> {
+    return this.dataManager.createRecordWithId(tableName, data)
+  }
+
+  /**
+   * Create record with access control (auto-set owner_id for private tables)
+   */
+  async createRecordWithAccessControl(
+    tableName: string,
+    data: Record<string, unknown>,
+    accessPolicy: 'public' | 'private',
+    userId?: string
+  ): Promise<string> {
+    return this.dataManager.createRecordWithAccessControl(tableName, data, accessPolicy, userId)
+  }
+
+  /**
+   * Update a record in a table
+   */
+  async updateRecord(tableName: string, id: string, data: Record<string, unknown>): Promise<void> {
+    return this.dataManager.updateRecord(tableName, id, data)
+  }
+
+  /**
+   * Update record with access control
+   */
+  async updateRecordWithAccessControl(
+    tableName: string,
+    id: string,
+    data: Record<string, unknown>,
+    accessPolicy: 'public' | 'private',
+    userId?: string
+  ): Promise<void> {
+    return this.dataManager.updateRecordWithAccessControl(tableName, id, data, accessPolicy, userId)
+  }
+
+  /**
    * Delete a record from a table
    */
   async deleteRecord(tableName: string, id: string): Promise<void> {
     return this.dataManager.deleteRecord(tableName, id)
+  }
+
+  /**
+   * Delete record with access control
+   */
+  async deleteRecordWithAccessControl(
+    tableName: string,
+    id: string,
+    accessPolicy: 'public' | 'private',
+    userId?: string
+  ): Promise<void> {
+    return this.dataManager.deleteRecordWithAccessControl(tableName, id, accessPolicy, userId)
+  }
+
+  /**
+   * Get single record by ID
+   */
+  async getRecordById(tableName: string, id: string): Promise<Record<string, unknown> | null> {
+    return this.dataManager.getRecordById(tableName, id)
+  }
+
+  /**
+   * Get single record by ID with access control
+   */
+  async getRecordByIdWithAccessControl(
+    tableName: string,
+    id: string,
+    accessPolicy: 'public' | 'private',
+    userId?: string
+  ): Promise<Record<string, unknown> | null> {
+    return this.dataManager.getRecordByIdWithAccessControl(tableName, id, accessPolicy, userId)
   }
 
   /**
@@ -87,6 +157,29 @@ export class TableDataManager {
   }
 
   /**
+   * Get data from table with access control
+   */
+  async getTableDataWithAccessControl(
+    tableName: string,
+    accessPolicy: 'public' | 'private',
+    userId?: string,
+    limit = 100,
+    offset = 0,
+    sortBy?: string,
+    sortOrder: 'ASC' | 'DESC' = 'DESC'
+  ): Promise<TableDataResult> {
+    return this.dataManager.getTableDataWithAccessControl(
+      tableName,
+      accessPolicy,
+      userId,
+      limit,
+      offset,
+      sortBy,
+      sortOrder
+    )
+  }
+
+  /**
    * Get data from table with access control and WHERE filtering
    */
   async getTableDataWithAccessControlAndFilter(
@@ -109,27 +202,6 @@ export class TableDataManager {
       sortOrder,
       whereClause
     )
-  }
-
-  /**
-   * Get a specific record by ID
-   */
-  async getRecordById(tableName: string, id: string): Promise<Record<string, unknown> | null> {
-    return this.dataManager.getRecordById(tableName, id)
-  }
-
-  /**
-   * Create a record with a specific ID (or let the system generate one)
-   */
-  async createRecordWithId(tableName: string, data: Record<string, unknown>): Promise<string> {
-    return this.dataManager.createRecordWithId(tableName, data)
-  }
-
-  /**
-   * Update a record in a table
-   */
-  async updateRecord(tableName: string, id: string, data: Record<string, unknown>): Promise<void> {
-    return this.dataManager.updateRecord(tableName, id, data)
   }
 
   /**

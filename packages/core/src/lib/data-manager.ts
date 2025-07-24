@@ -403,10 +403,19 @@ export class DataManager {
       .run()
 
     // Process hooks after successful insert
+    console.log(`[DATA-MANAGER] ===== About to process insert hooks =====`)
+    console.log(`[DATA-MANAGER] Table: ${tableName}, ID: ${id}`)
+    console.log(`[DATA-MANAGER] DataWithId:`, JSON.stringify(dataWithId, null, 2))
+    console.log(`[DATA-MANAGER] Env:`, this.env ? 'available' : 'not available')
+    console.log(`[DATA-MANAGER] ExecutionCtx:`, this.executionCtx ? 'available' : 'not available')
+
     await this.hookManager.processDataEvent(tableName, id as string, 'insert', dataWithId, {
       env: this.env,
       executionCtx: this.executionCtx,
     })
+    console.log(
+      `[DATA-MANAGER] ===== Insert hooks processing completed for ${tableName}:${id} =====`
+    )
 
     return id as string
   }
@@ -456,10 +465,19 @@ export class DataManager {
       .run()
 
     // Process hooks after successful insert
+    console.log(`[DATA-MANAGER] ===== About to process insert hooks =====`)
+    console.log(`[DATA-MANAGER] Table: ${tableName}, ID: ${id}`)
+    console.log(`[DATA-MANAGER] DataWithId:`, JSON.stringify(dataWithId, null, 2))
+    console.log(`[DATA-MANAGER] Env:`, this.env ? 'available' : 'not available')
+    console.log(`[DATA-MANAGER] ExecutionCtx:`, this.executionCtx ? 'available' : 'not available')
+
     await this.hookManager.processDataEvent(tableName, id as string, 'insert', dataWithId, {
       env: this.env,
       executionCtx: this.executionCtx,
     })
+    console.log(
+      `[DATA-MANAGER] ===== Insert hooks processing completed for ${tableName}:${id} =====`
+    )
 
     return id as string
   }
@@ -493,10 +511,12 @@ export class DataManager {
       .run()
 
     // Process hooks after successful update
+    console.log(`[DATA-MANAGER] Processing update hook for table: ${tableName}, id: ${id}`)
     await this.hookManager.processDataEvent(tableName, id, 'update', updateData, {
       env: this.env,
       executionCtx: this.executionCtx,
     })
+    console.log(`[DATA-MANAGER] Update hook processing completed for ${tableName}:${id}`)
   }
 
   // Update record with access control
@@ -512,23 +532,6 @@ export class DataManager {
     // Validate table name and check if it's a system table
     validateNotSystemTable(tableName, SYSTEM_TABLES)
     const safeTableName = validateAndEscapeTableName(tableName)
-
-    // For private tables, check ownership first
-    if (accessPolicy === 'private' && userId) {
-      const existingRecord = await this.db
-        .prepare(`SELECT owner_id FROM ${safeTableName} WHERE id = ?`)
-        .bind(id)
-        .first()
-
-      if (!existingRecord) {
-        throw new Error('Record not found')
-      }
-
-      const ownerId = (existingRecord as { owner_id?: string }).owner_id
-      if (ownerId !== userId) {
-        throw new Error('Access denied - user does not own this record')
-      }
-    }
 
     // Remove system fields from update data
     const updateData = { ...data }
@@ -558,16 +561,24 @@ export class DataManager {
 
     const sql = `UPDATE ${safeTableName} SET ${setClause} ${whereClause}`
 
-    await this.db
+    const result = await this.db
       .prepare(sql)
       .bind(...bindings)
       .run()
 
+    // Check if any rows were affected (record existed and was owned by user)
+    // Note: D1's result.meta contains the changes count
+    if (result.meta && 'changes' in result.meta && result.meta.changes === 0) {
+      throw new Error('Record not found')
+    }
+
     // Process hooks after successful update
+    console.log(`[DATA-MANAGER] Processing update hook for table: ${tableName}, id: ${id}`)
     await this.hookManager.processDataEvent(tableName, id, 'update', updateData, {
       env: this.env,
       executionCtx: this.executionCtx,
     })
+    console.log(`[DATA-MANAGER] Update hook processing completed for ${tableName}:${id}`)
   }
 
   // Delete record with access control

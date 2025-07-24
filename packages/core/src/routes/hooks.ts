@@ -76,6 +76,27 @@ hooks.post('/', zValidator('json', createHookSchema), async (c) => {
       return c.json({ error: 'Cannot create hooks on system tables' }, 400)
     }
 
+    // Check if hook already exists
+    const existingHooks = await hookManager.getActiveHooks(table_name, event_type)
+    if (existingHooks.length > 0) {
+      const existingHook = existingHooks[0]
+      return c.json(
+        {
+          success: true,
+          data: {
+            id: existingHook.id,
+            table_name: existingHook.table_name,
+            event_type: existingHook.event_type,
+            enabled: existingHook.enabled,
+            created_at: existingHook.created_at,
+            updated_at: existingHook.updated_at,
+          },
+          message: 'Hook already exists, returning existing hook',
+        },
+        200
+      )
+    }
+
     // Create the hook
     const hookId = await hookManager.createHook(table_name, event_type)
 

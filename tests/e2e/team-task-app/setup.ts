@@ -386,11 +386,11 @@ const aliceJwtPayload = {
   scope: ['user'],
   aud: 'localhost:8787',
   iss: 'vibebase-local',
-  exp: nowSec + 24 * 60 * 60,
+  exp: nowSec + 10 * 365 * 24 * 60 * 60, // 10年後
   iat: nowSec,
 };
 const aliceAccessToken = jwt.sign(aliceJwtPayload, JWT_SECRET);
-const aliceRefreshToken = jwt.sign({...aliceJwtPayload, type: 'refresh', exp: nowSec + 30 * 24 * 60 * 60}, JWT_SECRET);
+const aliceRefreshToken = jwt.sign({...aliceJwtPayload, type: 'refresh', exp: nowSec + 10 * 365 * 24 * 60 * 60}, JWT_SECRET);
 
 // BobのJWTトークン
 const bobJwtPayload = {
@@ -400,11 +400,11 @@ const bobJwtPayload = {
   scope: ['user'],
   aud: 'localhost:8787',
   iss: 'vibebase-local',
-  exp: nowSec + 24 * 60 * 60,
+  exp: nowSec + 10 * 365 * 24 * 60 * 60, // 10年後
   iat: nowSec,
 };
 const bobAccessToken = jwt.sign(bobJwtPayload, JWT_SECRET);
-const bobRefreshToken = jwt.sign({...bobJwtPayload, type: 'refresh', exp: nowSec + 30 * 24 * 60 * 60}, JWT_SECRET);
+const bobRefreshToken = jwt.sign({...bobJwtPayload, type: 'refresh', exp: nowSec + 10 * 365 * 24 * 60 * 60}, JWT_SECRET);
 
 // CharlieのJWTトークン
 const charlieJwtPayload = {
@@ -414,11 +414,11 @@ const charlieJwtPayload = {
   scope: ['user'],
   aud: 'localhost:8787',
   iss: 'vibebase-local',
-  exp: nowSec + 24 * 60 * 60,
+  exp: nowSec + 10 * 365 * 24 * 60 * 60, // 10年後
   iat: nowSec,
 };
 const charlieAccessToken = jwt.sign(charlieJwtPayload, JWT_SECRET);
-const charlieRefreshToken = jwt.sign({...charlieJwtPayload, type: 'refresh', exp: nowSec + 30 * 24 * 60 * 60}, JWT_SECRET);
+const charlieRefreshToken = jwt.sign({...charlieJwtPayload, type: 'refresh', exp: nowSec + 10 * 365 * 24 * 60 * 60}, JWT_SECRET);
 
 const userSessionsSQL = `
 -- Alice's session
@@ -429,7 +429,7 @@ INSERT OR REPLACE INTO user_sessions (
   'V1StGXR8_Z5jdHi6B-myT',
   '${hashToken(aliceAccessToken)}',
   '${hashToken(aliceRefreshToken)}',
-  datetime('now', '+24 hours'),
+  datetime('now', '+10 years'),
   datetime('now'),
   datetime('now')
 );
@@ -442,7 +442,7 @@ INSERT OR REPLACE INTO user_sessions (
   '3ZjkQ2mN8pX9vC7bA-wEr',
   '${hashToken(bobAccessToken)}',
   '${hashToken(bobRefreshToken)}',
-  datetime('now', '+24 hours'),
+  datetime('now', '+10 years'),
   datetime('now'),
   datetime('now')
 );
@@ -455,7 +455,7 @@ INSERT OR REPLACE INTO user_sessions (
   'LpH9mKj2nQ4vX8cD-zFgR',
   '${hashToken(charlieAccessToken)}',
   '${hashToken(charlieRefreshToken)}',
-  datetime('now', '+24 hours'),
+  datetime('now', '+10 years'),
   datetime('now'),
   datetime('now')
 );

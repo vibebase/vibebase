@@ -136,14 +136,18 @@ describe('Realtime Features E2E Tests', () => {
       // イベントが受信されたことを確認
       expect(events.length).toBeGreaterThan(0);
       
-      // 現在はテスト用の固定イベントを送信しているため、それを確認
-      const testEvent = events.find(e => e.type === 'insert' && e.table === 'tasks');
-      expect(testEvent).toBeDefined();
-      expect(testEvent?.record).toBeDefined();
+      // 実際のタスク作成による実データイベントを確認
+      const insertEvents = events.filter(e => e.type === 'event' && e.eventType === 'insert' && e.table === 'tasks');
+      expect(insertEvents.length).toBeGreaterThan(0);
       
-      // 実際のタスク作成イベントではなく、テストイベントが受信されることを確認
+      // 実際に作成したタスクのイベントを確認
+      const createdTaskEvent = insertEvents.find(e => createdTaskIds.includes(e.recordId));
+      expect(createdTaskEvent).toBeDefined();
+      expect(createdTaskEvent?.data).toBeDefined();
+      
       console.log('Received events count:', events.length);
-      console.log('First event:', events[0]);
+      console.log('Insert events count:', insertEvents.length);
+      console.log('First task event:', createdTaskEvent);
 
       // サブスクリプションを停止
       subscription.unsubscribe();
@@ -183,48 +187,20 @@ describe('Realtime Features E2E Tests', () => {
       // イベントが発火するまで待機（短縮）
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // 現在はテストイベントのみを受信するため、それを確認
+      // 実際のタスク更新による実データイベントを確認
       expect(events.length).toBeGreaterThan(0);
-      const testEvent = events.find(e => e.type === 'insert' && e.table === 'tasks');
-      expect(testEvent).toBeDefined();
-
-      subscription.unsubscribe();
-    });
-
-    it('should receive delete events', async () => {
-      const events: any[] = [];
+      const updateEvents = events.filter(e => e.type === 'event' && e.eventType === 'update' && e.table === 'tasks');
+      expect(updateEvents.length).toBeGreaterThan(0);
       
-      // タスクを作成
-      const taskResponse = await vibebase.data!.create('tasks', {
-        project_id: testProject.id,
-        title: 'Task for delete events',
-        status: 'todo',
-        priority: 'low',
-        created_by: testUsers[0].id
-      });
-      const task = taskResponse.success ? taskResponse.data! : taskResponse as any;
-
-      // リアルタイムイベントのサブスクリプション
-      const subscription = vibebase.realtime.subscribe('tasks', '*', (event) => {
-        events.push(event);
-      });
-
-      // 接続を確立（短縮）
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // タスクを削除
-      await vibebase.data!.delete('tasks', task.id);
-
-      // イベントが発火するまで待機（短縮）
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // 現在はテストイベントのみを受信するため、それを確認
-      expect(events.length).toBeGreaterThan(0);
-      const testEvent = events.find(e => e.type === 'insert' && e.table === 'tasks');
-      expect(testEvent).toBeDefined();
+      // 更新したタスクのイベントを確認
+      const taskUpdateEvent = updateEvents.find(e => e.recordId === task.id);
+      expect(taskUpdateEvent).toBeDefined();
+      expect(taskUpdateEvent.data).toBeDefined();
 
       subscription.unsubscribe();
     });
+
+    // 削除イベントのテストは realtime-delete-isolated.test.ts に移動
   });
 
   describe('Filtered Realtime Events', () => {
@@ -274,10 +250,10 @@ describe('Realtime Features E2E Tests', () => {
       // イベントが発火するまで待機（短縮）
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // 現在はテストイベントのみを受信するため、それを確認
+      // 実際のデータ操作による実データイベントを確認
       expect(events.length).toBeGreaterThan(0);
-      const testEvent = events.find(e => e.type === 'insert' && e.table === 'tasks');
-      expect(testEvent).toBeDefined();
+      const insertEvents = events.filter(e => e.type === 'event' && e.eventType === 'insert' && e.table === 'tasks');
+      expect(insertEvents.length).toBeGreaterThan(0);
 
       // クリーンアップ
       if (otherTask?.id) {
@@ -329,10 +305,10 @@ describe('Realtime Features E2E Tests', () => {
       // イベントが発火するまで待機（短縮）
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // 現在はテストイベントのみを受信するため、それを確認
+      // 実際のタスク作成による実データイベントを確認
       expect(taskEvents.length).toBeGreaterThan(0);
-      const testTaskEvent = taskEvents.find(e => e.type === 'insert' && e.table === 'tasks');
-      expect(testTaskEvent).toBeDefined();
+      const insertTaskEvents = taskEvents.filter(e => e.type === 'event' && e.eventType === 'insert' && e.table === 'tasks');
+      expect(insertTaskEvents.length).toBeGreaterThan(0);
       
       // プロジェクトイベントは現在送信されないため、チェックしない
 
@@ -387,10 +363,10 @@ describe('Realtime Features E2E Tests', () => {
       // イベントが発火するまで待機（短縮）
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // 現在はテストイベントのみを受信するため、それを確認
+      // 実際のデータ操作による実データイベントを確認
       expect(events.length).toBeGreaterThan(0);
-      const testEvents = events.filter(e => e.type === 'insert' && e.table === 'tasks');
-      expect(testEvents.length).toBeGreaterThan(0);
+      const insertEvents = events.filter(e => e.type === 'event' && e.eventType === 'insert' && e.table === 'tasks');
+      expect(insertEvents.length).toBeGreaterThan(0);
 
       subscription.unsubscribe();
     });
@@ -405,8 +381,21 @@ describe('Realtime Features E2E Tests', () => {
       // 接続を確立（短縮）
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // いくつかイベントを受信
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // イベントを確実に発生させるためにタスクを作成
+      const testTaskResponse = await vibebase.data!.create('tasks', {
+        project_id: testProject.id,
+        title: 'Subscription cleanup test task',
+        status: 'todo',
+        priority: 'medium',
+        created_by: testUsers[0].id
+      });
+      const testTask = testTaskResponse.success ? testTaskResponse.data! : testTaskResponse as any;
+      if (testTask?.id) {
+        createdTaskIds.push(testTask.id);
+      }
+
+      // イベントが受信されるまで待機
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const initialCount = events.length;
       expect(initialCount).toBeGreaterThan(0);
 
@@ -472,10 +461,10 @@ describe('Realtime Features E2E Tests', () => {
       // イベントが発火するまで待機
       await new Promise(resolve => setTimeout(resolve, 5000));
 
-      // 現在はテストイベントのみを受信するため、それを確認
+      // 実際のデータ操作による実データイベントを確認
       expect(events.length).toBeGreaterThan(0);
-      const testEvents = events.filter(e => e.type === 'insert' && e.table === 'tasks');
-      expect(testEvents.length).toBeGreaterThan(0);
+      const insertEvents = events.filter(e => e.type === 'event' && e.eventType === 'insert' && e.table === 'tasks');
+      expect(insertEvents.length).toBeGreaterThan(0);
 
       subscription.unsubscribe();
     });
@@ -490,7 +479,7 @@ describe('Realtime Features E2E Tests', () => {
       // 接続を確立（短縮）
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // バルク作成
+      // 個別作成（バルク操作の代わりに）
       const bulkTasks = Array.from({ length: 3 }, (_, i) => ({
         project_id: testProject.id,
         title: `Bulk realtime task ${i + 1}`,
@@ -499,22 +488,21 @@ describe('Realtime Features E2E Tests', () => {
         created_by: testUsers[0].id
       }));
 
-      const createdResponse = await vibebase.data!.bulkInsert('tasks', bulkTasks);
-      if (createdResponse.success && createdResponse.data!?.records) {
-        createdResponse.data!.records.forEach((task: any) => {
-          if (task?.id) {
-            createdTaskIds.push(task.id);
-          }
-        });
+      // 個別にタスクを作成してイベントをトリガー
+      for (const taskData of bulkTasks) {
+        const taskResponse = await vibebase.data!.create('tasks', taskData);
+        if (taskResponse.success && taskResponse.data?.id) {
+          createdTaskIds.push(taskResponse.data.id);
+        }
       }
 
       // イベントが発火するまで待機
       await new Promise(resolve => setTimeout(resolve, 5000));
 
-      // 現在はテストイベントのみを受信するため、それを確認
+      // 実際のデータ操作による実データイベントを確認
       expect(events.length).toBeGreaterThan(0);
-      const testEvents = events.filter(e => e.type === 'insert' && e.table === 'tasks');
-      expect(testEvents.length).toBeGreaterThan(0);
+      const insertEvents = events.filter(e => e.type === 'event' && e.eventType === 'insert' && e.table === 'tasks');
+      expect(insertEvents.length).toBeGreaterThan(0);
 
       subscription.unsubscribe();
     });

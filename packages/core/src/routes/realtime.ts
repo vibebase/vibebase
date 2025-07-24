@@ -7,101 +7,176 @@ import type { CustomDurableObjectNamespace, DurableObjectStub } from '../types/c
 
 export const realtime = new Hono<{ Bindings: Env; Variables: Variables }>()
 
+// GET /api/realtime/ping - Test Durable Object connectivity
+realtime.get('/ping', async (c) => {
+  console.log('[SSE] Ping request received')
+
+  if (!c.env.REALTIME) {
+    return c.json({ error: 'REALTIME env not configured' }, 503)
+  }
+
+  try {
+    const realtime = c.env.REALTIME as CustomDurableObjectNamespace
+    const id = realtime.idFromName('global')
+    const stub = realtime.get(id)
+
+    const response = await stub.fetch('http://internal/ping')
+    const data = await response.json()
+
+    return c.json({
+      durable_object: data,
+      realtime_configured: true,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('[SSE] Ping error:', error)
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        realtime_configured: !!c.env.REALTIME,
+      },
+      500
+    )
+  }
+})
+
 // Schema for subscription request
 const subscribeSchema = z.object({
   tables: z.array(z.string()).optional(),
   hookIds: z.array(z.string()).optional(),
 })
 
-// GET /api/realtime/test-sse - Simple test SSE endpoint
-realtime.get('/test-sse', async (_c) => {
-  const { readable, writable } = new TransformStream()
-  const writer = writable.getWriter()
-  const encoder = new TextEncoder()
+// Note: All SSE connections and broadcasting are handled by the Durable Object
+// This ensures consistency and scalability across multiple worker instances
 
-  // Send initial connection message
-  writer.write(
-    encoder.encode(`data: {"type":"connected","timestamp":"${new Date().toISOString()}"}\n\n`)
-  )
+// GET /api/realtime/test-sse - Test SSE endpoint without auth (for debugging only)
+realtime.get('/test-sse', async (c) => {
+  console.log('[TEST-SSE] Direct test connection without auth')
 
-  // Send test ping every 2 seconds
-  const interval = setInterval(() => {
-    writer.write(
-      encoder.encode(`data: {"type":"ping","timestamp":"${new Date().toISOString()}"}\n\n`)
+  if (!c.env.REALTIME) {
+    console.error('[TEST-SSE] REALTIME Durable Object not configured')
+    return c.json({ error: 'Realtime service not configured' }, 503)
+  }
+
+  const clientId = `test-${Math.random().toString(36).substring(2)}`
+  console.log('[TEST-SSE] Generated test clientId:', clientId)
+
+  try {
+    const realtime = c.env.REALTIME as CustomDurableObjectNamespace
+    const id = realtime.idFromName('global')
+    const stub = realtime.get(id)
+
+    console.log('[TEST-SSE] Connecting to Durable Object...')
+    const url = new URL(`http://internal/connect?clientId=${clientId}&userId=test-user`)
+    const response = await stub.fetch(url.toString())
+
+    console.log('[TEST-SSE] Durable Object response:', response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[TEST-SSE] Failed:', errorText)
+      return c.json({ error: 'Failed to connect', details: errorText }, 500)
+    }
+
+    return response
+  } catch (error) {
+    console.error('[TEST-SSE] Error:', error)
+    return c.json(
+      {
+        error: 'Connection error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
     )
-  }, 2000)
-
-  // Cleanup after 30 seconds
-  setTimeout(() => {
-    clearInterval(interval)
-    writer.close()
-  }, 30000)
-
-  return new Response(readable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    },
-  })
+  }
 })
 
 // GET /api/realtime/sse - Server-Sent Events endpoint (using multiAuth middleware)
 realtime.get('/sse', async (c) => {
+  console.log('[SSE] Incoming SSE connection request')
+  console.log('[SSE] Request URL:', c.req.url)
+
   // multiAuth middleware already handles token validation via URL parameter
   // The middleware supports both API keys and user JWT tokens
   const authContext = c.get('authContext')
 
-  if (!authContext) {
+  // DEBUG: For testing only - accept debug parameter
+  const debugMode = c.req.query('debug') === 'true'
+  if (debugMode) {
+    console.log('[SSE] DEBUG MODE - bypassing auth for testing')
+  }
+
+  if (!authContext && !debugMode) {
+    console.log('[SSE] No auth context - returning 401')
     return c.text('Unauthorized - Authentication required', 401)
   }
 
-  if (authContext.type === 'user') {
+  console.log('[SSE] Auth context type:', authContext?.type || 'debug')
+
+  // Check if Durable Object is available
+  if (!c.env.REALTIME) {
+    console.error('[SSE] REALTIME Durable Object not configured')
+    return c.json({ error: 'Realtime service not configured' }, 503)
   }
 
-  // Create a simple SSE stream for testing
-  const { readable, writable } = new TransformStream()
-  const writer = writable.getWriter()
-  const encoder = new TextEncoder()
+  // Generate unique client ID
+  const clientId = Math.random().toString(36).substring(2) + Date.now().toString(36)
+  const currentAuthContext = c.get('authContext')
+  const userId = currentAuthContext?.type === 'user' ? currentAuthContext.user?.id : undefined
 
-  // Send initial connection message
-  writer.write(
-    encoder.encode(`data: {"type":"connected","timestamp":"${new Date().toISOString()}"}\n\n`)
-  )
+  console.log('[SSE] Generated clientId:', clientId, 'userId:', userId)
 
-  // Send an immediate test event after connection
-  setTimeout(() => {
-    writer.write(
-      encoder.encode(
-        `data: {"type":"insert","table":"tasks","record":{"id":"test-123","title":"Test Event","created_at":"${new Date().toISOString()}"}}\n\n`
-      )
+  // Connect to Durable Object
+  try {
+    console.log('[SSE] Getting REALTIME namespace...')
+    const realtime = c.env.REALTIME as CustomDurableObjectNamespace
+    console.log('[SSE] REALTIME namespace:', realtime ? 'available' : 'not available')
+
+    console.log('[SSE] Getting Durable Object ID...')
+    const id = realtime.idFromName('global')
+    console.log('[SSE] Durable Object ID created')
+
+    console.log('[SSE] Getting Durable Object stub...')
+    const stub = realtime.get(id)
+    console.log('[SSE] Durable Object stub created')
+
+    console.log('[SSE] Connecting to Durable Object for clientId:', clientId)
+
+    // Proxy the SSE connection to the Durable Object
+    const url = new URL(
+      `http://internal/connect?clientId=${clientId}${userId ? `&userId=${userId}` : ''}`
     )
-  }, 100)
+    console.log('[SSE] Durable Object URL:', url.toString())
 
-  // Send test events every 2 seconds
-  const interval = setInterval(() => {
-    writer.write(
-      encoder.encode(
-        `data: {"type":"insert","table":"tasks","record":{"id":"test-${Date.now()}","title":"Test Event ${Date.now()}","created_at":"${new Date().toISOString()}"}}\n\n`
-      )
+    console.log('[SSE] Sending request to Durable Object...')
+    const response = await stub.fetch(url.toString())
+
+    console.log('[SSE] Durable Object response status:', response.status)
+    console.log(
+      '[SSE] Durable Object response headers:',
+      response.headers ? Object.fromEntries(response.headers.entries()) : 'No headers'
     )
-  }, 2000)
 
-  // Cleanup after 30 seconds
-  setTimeout(() => {
-    clearInterval(interval)
-    writer.close()
-  }, 30000)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[SSE] Durable Object connection failed:', response.status, errorText)
+      return c.json({ error: 'Failed to establish realtime connection', details: errorText }, 500)
+    }
 
-  return new Response(readable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    },
-  })
+    console.log('[SSE] Returning Durable Object SSE response to client')
+    // Return the Durable Object's SSE response
+    return response
+  } catch (error) {
+    console.error('[SSE] Error connecting to Durable Object:', error)
+    console.error('[SSE] Error stack:', error instanceof Error ? error.stack : 'No stack')
+    return c.json(
+      {
+        error: 'Failed to connect to realtime service',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    )
+  }
 })
 
 // POST /api/realtime/subscribe - Update subscriptions

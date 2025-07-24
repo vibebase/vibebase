@@ -128,7 +128,7 @@ export class WebPushService extends PushService {
       return {
         success: response.ok,
         statusCode: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
+        headers: response.headers ? Object.fromEntries(response.headers.entries()) : {},
         error: response.ok ? undefined : `HTTP ${response.status}: ${response.statusText}`,
       }
     } catch (error) {
