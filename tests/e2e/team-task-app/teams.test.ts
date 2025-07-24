@@ -130,7 +130,10 @@ describe('Team Management E2E Tests', () => {
         created_by: testUsers[0].id
       });
       
+      expect(response.success).toBe(true);
       const newTeam = response.data!;
+      expect(newTeam).toBeDefined();
+      
       if (newTeam) {
         createdTeamIds.push(newTeam.id);
       }
@@ -139,11 +142,6 @@ describe('Team Management E2E Tests', () => {
         name: 'Updated Team Name',
         description: 'Updated description with more details'
       };
-
-      expect(newTeam).toBeDefined();
-      if (!newTeam) {
-        throw new Error('Team creation failed');
-      }
 
       // わずかな待機時間を追加してupdated_atが確実に異なるようにする
       await new Promise(resolve => setTimeout(resolve, 10));

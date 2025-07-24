@@ -32,6 +32,36 @@ describe('User Auth Realtime E2E Tests', () => {
   let createdHookIds: string[] = [];
   let createdTaskIds: string[] = [];
 
+  beforeEach(async () => {
+    // 各テスト前に全クライアントの接続を確立
+    if (aliceClient?.realtime) {
+      aliceClient.realtime.connect();
+    }
+    if (bobClient?.realtime) {
+      bobClient.realtime.connect();
+    }
+    if (charlieClient?.realtime) {
+      charlieClient.realtime.connect();
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  });
+  
+  afterEach(() => {
+    // 各テスト後に全クライアントの接続をクリーンアップ
+    if (aliceClient?.realtime) {
+      aliceClient.realtime.unsubscribeAll();
+      aliceClient.realtime.disconnect();
+    }
+    if (bobClient?.realtime) {
+      bobClient.realtime.unsubscribeAll();
+      bobClient.realtime.disconnect();
+    }
+    if (charlieClient?.realtime) {
+      charlieClient.realtime.unsubscribeAll();
+      charlieClient.realtime.disconnect();
+    }
+  });
+
   beforeAll(async () => {
     // ユーザー認証クライアントを初期化
     aliceClient = createClient({ apiUrl: API_URL, userToken: testTokens.alice });

@@ -262,7 +262,8 @@ describe('Authentication E2E Tests', () => {
         name: `${originalName} (Updated)`
       });
       
-      expect(updated.data!.name).toContain('(Updated)');
+      expect(updated.success).toBe(true);
+      expect(updated.data?.name).toContain('(Updated)');
       
       // 元に戻す
       await vibebase.data!.update('teams', teamId, {

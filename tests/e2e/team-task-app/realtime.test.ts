@@ -19,6 +19,22 @@ describe('Realtime Features E2E Tests', () => {
   const apiUrl = process.env.VIBEBASE_API_URL || 'http://localhost:8787';
   const apiKey = process.env.VIBEBASE_API_KEY || 'vb_live_test123456789012345678901234567890';
 
+  beforeEach(async () => {
+    // 各テスト前に接続を確立
+    if (vibebase?.realtime) {
+      vibebase.realtime.connect();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  });
+  
+  afterEach(() => {
+    // 各テスト後に接続をクリーンアップ
+    if (vibebase?.realtime) {
+      vibebase.realtime.unsubscribeAll();
+      vibebase.realtime.disconnect();
+    }
+  });
+
   beforeAll(async () => {
     vibebase = createClient({
       apiUrl,
@@ -212,9 +228,6 @@ describe('Realtime Features E2E Tests', () => {
         events.push(event);
       });
 
-      // 接続を確立（短縮）
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       // 他のプロジェクトを作成
       const otherProjectResponse = await vibebase.data!.create('projects', {
         team_id: testTeam.id,
@@ -263,6 +276,7 @@ describe('Realtime Features E2E Tests', () => {
         await vibebase.data!.delete('projects', otherProject.id);
       }
       subscription.unsubscribe();
+      vibebase.realtime.disconnect();
     });
 
     it('should handle multiple simultaneous subscriptions', async () => {
@@ -277,9 +291,6 @@ describe('Realtime Features E2E Tests', () => {
       const projectSubscription = vibebase.realtime.subscribe('projects', '*', (event) => {
         projectEvents.push(event);
       });
-
-      // 接続を確立（短縮）
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       // データを作成
       const newProjectResponse = await vibebase.data!.create('projects', {
@@ -318,6 +329,7 @@ describe('Realtime Features E2E Tests', () => {
       }
       taskSubscription.unsubscribe();
       projectSubscription.unsubscribe();
+      vibebase.realtime.disconnect();
     });
   });
 
@@ -328,9 +340,6 @@ describe('Realtime Features E2E Tests', () => {
       const subscription = vibebase.realtime.subscribe('tasks', '*', (event) => {
         events.push(event);
       });
-
-      // 接続を確立（短縮）
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       // 最初のタスクを作成
       const task1Response = await vibebase.data!.create('tasks', {
@@ -377,9 +386,6 @@ describe('Realtime Features E2E Tests', () => {
       const subscription = vibebase.realtime.subscribe('tasks', '*', (event) => {
         events.push(event);
       });
-
-      // 接続を確立（短縮）
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       // イベントを確実に発生させるためにタスクを作成
       const testTaskResponse = await vibebase.data!.create('tasks', {
