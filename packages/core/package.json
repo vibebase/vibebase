@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@block65/webcrypto-web-push": "^1.0.2",
+
     "@hono/zod-validator": "^0.2.0",
     "hono": "^4.7.11",
     "nanoid": "^5.1.5",

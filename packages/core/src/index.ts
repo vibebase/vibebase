@@ -18,7 +18,7 @@ import { customQueries } from './routes/custom-queries'
 import { data } from './routes/data'
 import { docs } from './routes/docs'
 import { hooks } from './routes/hooks'
-import { push } from './routes/push'
+
 import { realtime } from './routes/realtime'
 import { snapshots } from './routes/snapshots'
 import { storage } from './routes/storage'
@@ -183,8 +183,7 @@ app.use('*', async (c, next) => {
     c.req.path.startsWith('/api/auth/') ||
     c.req.path.startsWith('/assets/') ||
     c.req.path.startsWith('/favicon.') ||
-    c.req.path === '/api/realtime/ping' ||
-    c.req.path === '/api/push/vapid-public-key'
+    c.req.path === '/api/realtime/ping'
   ) {
     await next()
     return
@@ -237,7 +236,6 @@ app.route('/api/hooks', hooks)
 app.route('/api/realtime', realtime)
 app.route('/api/custom-queries', customQueries)
 app.route('/api/custom', custom)
-app.route('/api/push', push)
 
 // Handle static assets
 app.get('/assets/*', async (c) => {

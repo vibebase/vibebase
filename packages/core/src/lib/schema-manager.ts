@@ -576,4 +576,93 @@ export class SchemaManager {
 
     return modifiedSQL
   }
+
+  // Apply schema migration (non-destructive)
+  async applySchemaMigration(targetSchemas: TableSchema[]): Promise<void> {
+    await this.enableForeignKeys()
+
+    // Create pre-change snapshot asynchronously
+    this.createAsyncSnapshot({
+      description: 'Before applying schema migration',
+      snapshotType: 'pre_change',
+    })
+
+    // Get current schemas
+    const currentSchemas = await this.snapshotManager.getAllTableSchemas()
+    const currentTableNames = new Set(currentSchemas.map((s) => s.name))
+
+    // Process each target schema
+    for (const targetSchema of targetSchemas) {
+      const tableName = targetSchema.name
+
+      // Skip system tables
+      if ((SYSTEM_TABLES as readonly string[]).includes(tableName)) {
+        continue
+      }
+
+      if (!currentTableNames.has(tableName)) {
+        // Table doesn't exist, create it
+        await this.db.prepare(targetSchema.sql).run()
+      } else {
+        // Table exists, check for missing columns
+        const currentSchema = currentSchemas.find((s) => s.name === tableName)
+        if (!currentSchema) continue
+
+        const currentColumnNames = new Set(currentSchema.columns.map((c) => c.name))
+        const targetColumns = targetSchema.columns
+
+        for (const targetColumn of targetColumns) {
+          if (!currentColumnNames.has(targetColumn.name)) {
+            // Column is missing, add it
+            const columnDef: ColumnDefinition = {
+              name: targetColumn.name,
+              type: targetColumn.type,
+            }
+
+            // Build constraints string
+            const constraints: string[] = []
+            if (targetColumn.notnull === 1 && targetColumn.pk !== 1) {
+              // Skip NOT NULL check for now, as it requires data validation
+              // constraints.push('NOT NULL')
+            }
+            if (targetColumn.dflt_value !== null && targetColumn.dflt_value !== undefined) {
+              if (typeof targetColumn.dflt_value === 'string') {
+                if (
+                  targetColumn.dflt_value === 'CURRENT_TIMESTAMP' ||
+                  targetColumn.dflt_value === 'NULL'
+                ) {
+                  constraints.push(`DEFAULT ${targetColumn.dflt_value}`)
+                } else if (targetColumn.dflt_value.includes('(')) {
+                  constraints.push(`DEFAULT (${targetColumn.dflt_value})`)
+                } else {
+                  constraints.push(`DEFAULT '${targetColumn.dflt_value}'`)
+                }
+              } else {
+                constraints.push(`DEFAULT ${targetColumn.dflt_value}`)
+              }
+            }
+
+            columnDef.constraints = constraints.join(' ')
+
+            await this.addColumn(tableName, columnDef)
+          }
+        }
+      }
+    }
+  }
+}
+
+interface TableSchema {
+  name: string
+  sql: string
+  columns: {
+    cid: number
+    name: string
+    type: string
+    notnull: number
+    dflt_value: unknown
+    pk: number
+  }[]
+  foreignKeys: { from: string; table: string; to: string }[]
+  indexes: { name: string; tableName: string; columns: string[]; unique: boolean; sql: string }[]
 }

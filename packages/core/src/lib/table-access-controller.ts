@@ -80,6 +80,10 @@ export class TableAccessController {
     // Get access policy for the table
     const accessPolicy = await this.getTableAccessPolicy(tableName)
 
+    if (accessPolicy === 'private' && !userId) {
+      throw new Error('Access denied: Cannot create record in private table without authentication')
+    }
+
     return this.dataManager.createRecordWithAccessControl(tableName, data, accessPolicy, userId)
   }
 

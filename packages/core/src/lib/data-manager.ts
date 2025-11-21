@@ -343,7 +343,10 @@ export class DataManager {
     let whereClause = 'WHERE id = ?'
     const bindings: (string | number | boolean | null)[] = [id]
 
-    if (accessPolicy === 'private' && userId) {
+    if (accessPolicy === 'private') {
+      if (!userId) {
+        return null
+      }
       whereClause += ' AND owner_id = ?'
       bindings.push(userId)
     }
@@ -554,7 +557,11 @@ export class DataManager {
     ]
 
     // Additional access control for private tables
-    if (accessPolicy === 'private' && userId) {
+    // Additional access control for private tables
+    if (accessPolicy === 'private') {
+      if (!userId) {
+        throw new Error('Access denied')
+      }
       whereClause += ' AND owner_id = ?'
       bindings.push(userId)
     }
@@ -598,7 +605,10 @@ export class DataManager {
     let whereClause = 'WHERE id = ?'
     const bindings: (string | number | boolean | null)[] = [id]
 
-    if (accessPolicy === 'private' && userId) {
+    if (accessPolicy === 'private') {
+      if (!userId) {
+        throw new Error('Access denied')
+      }
       whereClause += ' AND owner_id = ?'
       bindings.push(userId)
     }

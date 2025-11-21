@@ -21,11 +21,11 @@ export const SYSTEM_TABLES = [
   'realtime_subscriptions',
   'custom_queries',
   'custom_query_logs',
+  'vapid_config',
   'push_subscriptions',
   'notification_rules',
   'notification_templates',
   'notification_logs',
-  'vapid_config',
 ] as const
 
 type SystemTable = (typeof SYSTEM_TABLES)[number]
