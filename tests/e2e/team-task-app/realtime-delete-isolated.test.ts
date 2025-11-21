@@ -15,7 +15,7 @@ describe('Realtime Delete Events (Isolated)', () => {
   let testProject: Project;
   let testUsers: User[] = [];
   let createdTaskIds: string[] = [];
-  
+
   const apiUrl = process.env.VIBEBASE_API_URL || 'http://localhost:8787';
   const apiKey = process.env.VIBEBASE_API_KEY || 'vb_live_test123456789012345678901234567890';
 
@@ -60,7 +60,7 @@ describe('Realtime Delete Events (Isolated)', () => {
     } catch (error) {
       console.warn('Failed to create hooks:', error);
     }
-    
+
     // 完全に独立したリアルタイム環境を保証するため長めの待機
     await new Promise(resolve => setTimeout(resolve, 3000));
   });
@@ -96,34 +96,34 @@ describe('Realtime Delete Events (Isolated)', () => {
       vibebase.realtime.disconnect();
     }
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     const events: any[] = [];
-    
+
     // 超独特なタスク名(ミリ秒 + ランダム + 専用プレフィックス)
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 10);
     const uniqueTaskTitle = `ISOLATED_DELETE_TEST_${timestamp}_${random}`;
-    
+
     console.log(`🔥 Starting ISOLATED delete test with title: ${uniqueTaskTitle}`);
-    
+
     // 新しい接続を開始
     vibebase.realtime.connect();
     await new Promise(resolve => setTimeout(resolve, 2000));
     expect(vibebase.realtime.isConnected()).toBe(true);
-    
+
     // タスクIDを保存する変数
     let taskId: string | null = null;
-    
+
     // 超限定的なイベントフィルタリング
     const subscription = vibebase.realtime.subscribe('tasks', '*', (event) => {
       console.log(`📨 ISOLATED DELETE TEST received:`, JSON.stringify(event, null, 2));
-      
+
       // このテストのタスクのみを受け入れる(超限定的)
       const isOurTask = event.table === 'tasks' && (
         (event.data?.title === uniqueTaskTitle) ||
         (taskId && event.recordId === taskId)
       );
-      
+
       if (isOurTask) {
         console.log(`✅ ISOLATED DELETE: Event matched our task!`);
         events.push(event);
@@ -165,30 +165,30 @@ describe('Realtime Delete Events (Isolated)', () => {
     // 結果の確認
     console.log('DEBUG ISOLATED: Total filtered events received:', events.length);
     console.log('DEBUG ISOLATED: Filtered Events:', JSON.stringify(events, null, 2));
-    
+
     if (events.length === 0) {
       console.log('❌ ISOLATED: No events received at all');
       console.log('Task ID:', taskId);
       console.log('Unique Title:', uniqueTaskTitle);
       console.log('Is connected:', vibebase.realtime.isConnected());
-      
+
       // デバッグ情報をさらに詳細に出力
       throw new Error(`ISOLATED DELETE TEST FAILED: No events received for task ${taskId} with title ${uniqueTaskTitle}`);
     }
-    
+
     expect(events.length).toBeGreaterThan(0);
-    
+
     const deleteEvents = events.filter(e => e.type === 'event' && e.eventType === 'delete' && e.table === 'tasks');
     console.log('DEBUG ISOLATED: Delete events found:', deleteEvents.length);
     expect(deleteEvents.length).toBeGreaterThan(0);
-    
+
     // 削除したタスクのイベントを確認
     const taskDeleteEvent = deleteEvents.find(e => e.recordId === task.id);
     expect(taskDeleteEvent).toBeDefined();
     console.log(`✅ ISOLATED DELETE TEST PASSED: Delete event confirmed for task ${task.id}`);
 
     subscription.unsubscribe();
-    
+
     // 最後のクリーンアップ
     await new Promise(resolve => setTimeout(resolve, 1000));
   }, 90000); // 90秒のタイムアウト

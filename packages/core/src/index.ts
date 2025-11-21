@@ -19,6 +19,7 @@ import { data } from './routes/data'
 import { docs } from './routes/docs'
 import { hooks } from './routes/hooks'
 
+import { RealtimeBridge } from './lib/realtime-bridge'
 import { realtime } from './routes/realtime'
 import { snapshots } from './routes/snapshots'
 import { storage } from './routes/storage'
@@ -338,6 +339,17 @@ export default {
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Initialize RealtimeBridge if REALTIME is available
+    // This connects the Event Bus to the Realtime Durable Object
+    if (env.REALTIME && !realtimeBridge) {
+      realtimeBridge = new RealtimeBridge(env.REALTIME as CustomDurableObjectNamespace)
+      realtimeBridge.start()
+      console.log('[WORKER] RealtimeBridge initialized and started')
+    }
+
     return app.fetch(request, env, ctx)
   },
 }
+
+// Global RealtimeBridge instance
+let realtimeBridge: RealtimeBridge | null = null
